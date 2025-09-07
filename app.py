@@ -26,22 +26,23 @@ def attendance():
     if not username or not password:
         return render_template("login.html", error="Please enter username and password.")
 
-    # Get attendance using scraper
+    # --- Fetch attendance ---
     data = login_and_get_attendance(username, password)
 
-    # If login failed or scraper returned error
+    # --- Login failed? ---
     if not data.get("overall", {}).get("success"):
         return render_template(
             "login.html",
             error=data.get("overall", {}).get("message", "Login failed.")
         )
 
-    # Save daily data temporarily in server-side session
+    # --- Store streak & daily data in session ---
     session["daily_data"] = data.get("daily", {})
-    session["months_present"] = sorted({d[:7] for d in session["daily_data"].keys()})  # YYYY-MM
+    session["streak_data"] = data.get("streak", {})
+    session["months"] = sorted({d[:7] for d in session["streak_data"].keys()})  # YYYY-MM
     session.modified = True
 
-    # Prepare subject data for table
+    # --- Subject table ---
     subjects = data.get("subjects", {})
     table_data = []
     for i, (code, sub) in enumerate(subjects.items(), start=1):
@@ -60,12 +61,18 @@ def attendance():
 
 @app.route("/streak")
 def streak():
-    daily_data = session.get("daily_data", {})
-    if not daily_data:
+    streak_data = session.get("streak_data", {})
+    if not streak_data:
         return redirect(url_for("home"))
-    # Pass an initial date (latest available) so calendar opens on a relevant month
-    initial_date = sorted(daily_data.keys())[-1] if daily_data else None
-    return render_template("streak.html", daily_data=daily_data, initial_date=initial_date)
+
+    # Open latest available month in calendar
+    initial_date = sorted(streak_data.keys())[-1] if streak_data else None
+
+    return render_template(
+        "streak.html",
+        streak_data=streak_data,
+        initial_date=initial_date
+    )
 
 
 if __name__ == "__main__":
