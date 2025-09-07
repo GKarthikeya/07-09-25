@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Your Attendance</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="container">
+  <div class="card">
+    <h1>Your Attendance</h1>
+    <p class="muted">
+      Overall: <strong>{{ overall.percentage }}%</strong> (Present: {{ overall.present }}, Absent: {{ overall.absent }})
+    </p>
+
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th><th>Code</th><th>Subject</th><th>Present</th><th>Absent</th><th>%</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in table_data %}
+        <tr class="{% if row.status == 'Shortage' %}danger{% elif row.status == 'Condonation' %}warn{% endif %}">
+          <td>{{ row.sno }}</td>
+          <td>{{ row.code }}</td>
+          <td>{{ row.name }}</td>
+          <td>{{ row.present }}</td>
+          <td>{{ row.absent }}</td>
+          <td>{{ row.percentage }}</td>
+          <td>{{ row.status }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <form action="{{ url_for('streak') }}" method="get">
+      <button type="submit" class="btn">View Streak</button>
+    </form>
+  </div>
+</body>
+</html>

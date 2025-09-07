@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: samvidha-attendance
+    env: docker
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: FLASK_SECRET_KEY
+        generateValue: true

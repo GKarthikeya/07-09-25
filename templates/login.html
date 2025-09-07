@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Login | Attendance</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="container">
+  <div class="card">
+    <h1>Samvidha Attendance</h1>
+    {% if error %}
+      <div class="alert">{{ error }}</div>
+    {% endif %}
+    <form action="{{ url_for('attendance') }}" method="post" class="form">
+      <label>Username</label>
+      <input type="text" name="username" required />
+      <label>Password</label>
+      <input type="password" name="password" required />
+      <button type="submit">Login</button>
+    </form>
+  </div>
+</body>
+</html>
