@@ -5,27 +5,62 @@
   <title>Attendance Streak</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    .calendar { display: grid; grid-template-columns: repeat(7, 40px); gap: 5px; }
-    .day {
+    table { border-collapse: collapse; margin-top: 15px; }
+    th, td {
       width: 40px; height: 40px;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 5px;
-      font-size: 12px; cursor: pointer;
+      text-align: center;
+      border: 1px solid #ccc;
     }
     .green { background-color: #4CAF50; color: white; }
     .red { background-color: #F44336; color: white; }
-    .empty { background-color: #eee; }
+    .empty { background-color: #f9f9f9; }
+    select { padding: 5px; margin-bottom: 10px; }
   </style>
+  <script>
+    function changeMonth() {
+      const selected = document.getElementById("month-select").value;
+      window.location.href = "/streak?month=" + selected;
+    }
+  </script>
 </head>
 <body>
   <h2>Attendance Streak</h2>
   <p>Showing days marked as <span style="color:green">Present</span> or <span style="color:red">Absent</span>.</p>
 
-  <div class="calendar">
-    {% for date, status in streak_data.items() %}
-      <div class="day {{ status }}">{{ date.split('-')[-1] }}</div>
+  <!-- Month selector -->
+  <label for="month-select">Select Month:</label>
+  <select id="month-select" onchange="changeMonth()">
+    {% for m in months %}
+      <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>
+        {{ m }}
+      </option>
     {% endfor %}
-  </div>
+  </select>
+
+  <!-- Calendar -->
+  <table>
+    <thead>
+      <tr>
+        <th>Mon</th><th>Tue</th><th>Wed</th>
+        <th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for week in month_days %}
+        <tr>
+          {% for day in week %}
+            {% if day == 0 %}
+              <td class="empty"></td>
+            {% else %}
+              {% set date_str = "{}-{:02d}-{:02d}".format(year, month, day) %}
+              {% set status = streak_data.get(date_str) %}
+              <td class="{{ status if status else 'empty' }}">{{ day }}</td>
+            {% endif %}
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 
   <p><a href="{{ url_for('attendance') }}">⬅ Back to Attendance</a></p>
 </body>
