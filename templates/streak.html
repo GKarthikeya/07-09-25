@@ -10,11 +10,18 @@
       width: 40px; height: 40px;
       text-align: center;
       border: 1px solid #ccc;
+      position: relative;
     }
     .green { background-color: #4CAF50; color: white; }
     .red { background-color: #F44336; color: white; }
     .empty { background-color: #f9f9f9; }
+    .today { border: 2px solid #2196F3 !important; } /* highlight today */
     select { padding: 5px; margin-bottom: 10px; }
+
+    /* Tooltip styling */
+    td[title] {
+      cursor: pointer;
+    }
   </style>
   <script>
     function changeMonth() {
@@ -46,6 +53,7 @@
       </tr>
     </thead>
     <tbody>
+      {% set today_str = now().strftime("%Y-%m-%d") %}
       {% for week in month_days %}
         <tr>
           {% for day in week %}
@@ -54,7 +62,19 @@
             {% else %}
               {% set date_str = "{}-{:02d}-{:02d}".format(year, month, day) %}
               {% set status = streak_data.get(date_str) %}
-              <td class="{{ status if status else 'empty' }}">{{ day }}</td>
+              {% set info = daily_data.get(date_str) %}
+              <td class="{{ status if status else 'empty' }} {% if date_str == today_str %}today{% endif %}"
+                  title="
+                    Date: {{ date_str }}
+                    {% if info %}
+                    Present: {{ ', '.join(info['present']) if info['present'] else 'None' }}
+                    Absent: {{ ', '.join(info['absent']) if info['absent'] else 'None' }}
+                    {% else %}
+                    No data
+                    {% endif %}
+                  ">
+                {{ day }}
+              </td>
             {% endif %}
           {% endfor %}
         </tr>
