@@ -1,66 +1,32 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8">
   <title>Attendance Streak</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
   <style>
-    /* small circular marker at bottom-center of each day */
-    .streak-dot {
-      position: absolute;
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      border: 2px solid;
-      bottom: 6px; left: 50%;
-      transform: translateX(-50%);
-      pointer-events: none;
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .calendar { display: grid; grid-template-columns: repeat(7, 40px); gap: 5px; }
+    .day {
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 5px;
+      font-size: 12px; cursor: pointer;
     }
-    .streak-dot.present { border-color: #16a34a; } /* green-600 */
-    .streak-dot.absent { border-color: #dc2626; }  /* red-600 */
-    .fc .fc-daygrid-day-frame { position: relative; } /* ensure positioned parent */
+    .green { background-color: #4CAF50; color: white; }
+    .red { background-color: #F44336; color: white; }
+    .empty { background-color: #eee; }
   </style>
 </head>
-<body class="container">
-  <div class="card">
-    <h1>Attendance Streak</h1>
-    <p class="muted">Green circle = all classes present; Red circle = at least one absent.</p>
-    <div id="calendar"></div>
+<body>
+  <h2>Attendance Streak</h2>
+  <p>Showing days marked as <span style="color:green">Present</span> or <span style="color:red">Absent</span>.</p>
+
+  <div class="calendar">
+    {% for date, status in streak_data.items() %}
+      <div class="day {{ status }}">{{ date.split('-')[-1] }}</div>
+    {% endfor %}
   </div>
 
-  <script>
-    const dailyData = {{ daily_data | tojson }};
-    const initialDate = "{{ initial_date or '' }}";
-
-    function dayStatus(dateStr) {
-      const d = dailyData[dateStr];
-      if (!d) return null;
-      // Present day => no absences that day
-      return (d.absent === 0 && (d.present > 0)) ? "present" : "absent";
-    }
-
-    document.addEventListener('DOMContentLoaded', function() {
-      const calendarEl = document.getElementById('calendar');
-      const calendar = new FullCalendar.Calendar(calendarEl, {
-        headerToolbar: { start: 'prev,next today', center: 'title', end: '' },
-        initialView: 'dayGridMonth',
-        initialDate: initialDate || undefined,
-        dayCellDidMount: function(info) {
-          const y = info.date.getFullYear();
-          const m = String(info.date.getMonth() + 1).padStart(2, '0');
-          const d = String(info.date.getDate()).padStart(2, '0');
-          const dateStr = `${y}-${m}-${d}`;
-          const status = dayStatus(dateStr);
-          if (status) {
-            const dot = document.createElement('div');
-            dot.className = `streak-dot ${status}`;
-            info.el.appendChild(dot);
-          }
-        }
-      });
-      calendar.render();
-    });
-  </script>
+  <p><a href="{{ url_for('attendance') }}">⬅ Back to Attendance</a></p>
 </body>
 </html>
