@@ -1,7 +1,8 @@
-#flask
+/*flask
 selenium
 pandas
-gunicorn#
+gunicorn*/
+
 Flask==3.0.3
 Flask-Session==0.8.0
 selenium==4.24.0
