@@ -34,11 +34,15 @@ def _parse_date(date_str: str) -> str | None:
 
 
 def create_driver():
+    """Setup Chrome WebDriver (headless in Docker/Render)."""
+    chrome_options = Options()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--disable-software-rasterizer")
-chrome_options.add_argument("--single-process")
-chrome_options.add_argument("--disable-features=VizDisplayCompositor")
-chrome_options.add_argument("--remote-debugging-port=9222")
-
+    chrome_options.add_argument("--single-process")
+    chrome_options.add_argument("--disable-features=VizDisplayCompositor")
+    chrome_options.add_argument("--remote-debugging-port=9222")
 
     # Prefer system-installed Chrome (Dockerfile provides google-chrome)
     for path in ("/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"):
@@ -229,4 +233,3 @@ def login_and_get_attendance(username, password):
             driver.quit()
         except Exception:
             pass
-
