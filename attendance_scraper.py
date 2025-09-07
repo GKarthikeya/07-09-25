@@ -124,17 +124,20 @@ def calculate_attendance(rows, page_text=None):
                 continue
 
             if date_key not in result["daily"]:
-                result["daily"][date_key] = {"present": 0, "absent": 0}
-
+                result["daily"][date_key] = {"present": [], "absent": []}
             status_up = status_col.upper()
             if "PRESENT" in status_up:
-                result["daily"][date_key]["present"] += 1
+                if current_course_name:
+                    result["daily"][date_key]["present"].append(current_course_name)
+                
                 total_present += 1
                 if current_course_code:
                     ensure_subject(current_course_code, current_course_name or "")
                     result["subjects"][current_course_code]["present"] += 1
             elif "ABSENT" in status_up:
-                result["daily"][date_key]["absent"] += 1
+                if current_course_name:
+                    result["daily"][date_key]["absent"].append(current_course_name)
+                    
                 total_absent += 1
                 if current_course_code:
                     ensure_subject(current_course_code, current_course_name or "")
@@ -234,3 +237,4 @@ def login_and_get_attendance(username, password):
             driver.quit()
         except Exception:
             pass
+
