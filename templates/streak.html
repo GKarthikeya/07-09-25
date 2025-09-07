@@ -4,23 +4,128 @@
   <meta charset="UTF-8">
   <title>Attendance Streak</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    table { border-collapse: collapse; margin-top: 15px; }
-    th, td {
-      width: 40px; height: 40px;
-      text-align: center;
-      border: 1px solid #ccc;
-      position: relative;
+    :root {
+      --bg: #f8f9fa;
+      --card-bg: #fff;
+      --text: #202124;
+      --muted: #5f6368;
+      --border: #dadce0;
+      --green: #34a853;
+      --red: #ea4335;
+      --blue: #1a73e8;
     }
-    .green { background-color: #4CAF50; color: white; }
-    .red { background-color: #F44336; color: white; }
-    .empty { background-color: #f9f9f9; }
-    .today { border: 2px solid #2196F3 !important; } /* highlight today */
-    select { padding: 5px; margin-bottom: 10px; }
-
-    /* Tooltip styling */
-    td[title] {
+    body {
+      font-family: "Google Sans", Arial, sans-serif;
+      background-color: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      color: var(--text);
+    }
+    .card {
+      background: var(--card-bg);
+      padding: 30px 40px;
+      border-radius: 16px;
+      box-shadow: 0px 6px 20px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 420px;
+    }
+    h2 {
+      margin: 0 0 10px;
+      font-size: 22px;
+      font-weight: 500;
+    }
+    p {
+      margin: 0 0 15px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    table {
+      border-collapse: separate;
+      border-spacing: 6px;
+      margin: 15px auto;
+      text-align: center;
+      width: 100%;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 500;
+      padding-bottom: 5px;
+      font-size: 13px;
+    }
+    td {
+      width: 44px; height: 44px;
+      text-align: center;
+      vertical-align: middle;
+      border-radius: 50%;
       cursor: pointer;
+      font-weight: 500;
+      font-size: 14px;
+      position: relative;
+      transition: background 0.2s ease;
+    }
+    /* Attendance colors */
+    .green { background-color: var(--green); color: white; }
+    .red { background-color: var(--red); color: white; }
+    .empty { color: var(--muted); }
+    /* Today highlight */
+    .today {
+      border: 2px solid var(--blue);
+      color: var(--blue);
+      font-weight: 600;
+    }
+    /* Hover effect */
+    td:hover {
+      background-color: rgba(26,115,232,0.15);
+    }
+    /* Selected day effect */
+    .selected {
+      background-color: var(--blue) !important;
+      color: #fff !important;
+    }
+    /* Tooltip styling */
+    .tooltip {
+      visibility: hidden;
+      background-color: #333;
+      color: #fff;
+      text-align: left;
+      padding: 6px 8px;
+      border-radius: 6px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      font-size: 12px;
+      white-space: nowrap;
+      box-shadow: 0px 2px 6px rgba(0,0,0,0.2);
+    }
+    td:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+    select {
+      padding: 6px 10px;
+      margin-bottom: 15px;
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    a {
+      display: inline-block;
+      margin-top: 15px;
+      font-size: 14px;
+      color: var(--blue);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
     }
   </style>
   <script>
@@ -28,60 +133,67 @@
       const selected = document.getElementById("month-select").value;
       window.location.href = "/streak?month=" + selected;
     }
+    function selectDay(el) {
+      document.querySelectorAll("td").forEach(td => td.classList.remove("selected"));
+      el.classList.add("selected");
+    }
   </script>
 </head>
 <body>
-  <h2>Attendance Streak</h2>
-  <p>Showing days marked as <span style="color:green">Present</span> or <span style="color:red">Absent</span>.</p>
+  <div class="card">
+    <h2>📅 Attendance Streak</h2>
+    <p>Showing <span style="color:var(--green)">Present</span> and <span style="color:var(--red)">Absent</span> days.</p>
 
-  <!-- Month selector -->
-  <label for="month-select">Select Month:</label>
-  <select id="month-select" onchange="changeMonth()">
-    {% for m in months %}
-      <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>
-        {{ m }}
-      </option>
-    {% endfor %}
-  </select>
-
-  <!-- Calendar -->
-  <table>
-    <thead>
-      <tr>
-        <th>Mon</th><th>Tue</th><th>Wed</th>
-        <th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% set today_str = now().strftime("%Y-%m-%d") %}
-      {% for week in month_days %}
-        <tr>
-          {% for day in week %}
-            {% if day == 0 %}
-              <td class="empty"></td>
-            {% else %}
-              {% set date_str = "{}-{:02d}-{:02d}".format(year, month, day) %}
-              {% set status = streak_data.get(date_str) %}
-              {% set info = daily_data.get(date_str) %}
-              <td class="{{ status if status else 'empty' }} {% if date_str == today_str %}today{% endif %}"
-                  title="
-                    Date: {{ date_str }}
-                    {% if info %}
-                    Present: {{ ', '.join(info['present']) if info['present'] else 'None' }}
-                    Absent: {{ ', '.join(info['absent']) if info['absent'] else 'None' }}
-                    {% else %}
-                    No data
-                    {% endif %}
-                  ">
-                {{ day }}
-              </td>
-            {% endif %}
-          {% endfor %}
-        </tr>
+    <!-- Month selector -->
+    <label for="month-select" style="font-size:14px; color:var(--muted);">Select Month:</label><br>
+    <select id="month-select" onchange="changeMonth()">
+      {% for m in months %}
+        <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>
+          {{ m }}
+        </option>
       {% endfor %}
-    </tbody>
-  </table>
+    </select>
 
-  <p><a href="{{ url_for('attendance') }}">⬅ Back to Attendance</a></p>
+    <!-- Calendar -->
+    <table>
+      <thead>
+        <tr>
+          <th>Mon</th><th>Tue</th><th>Wed</th>
+          <th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% set today_str = now().strftime("%Y-%m-%d") %}
+        {% for week in month_days %}
+          <tr>
+            {% for day in week %}
+              {% if day == 0 %}
+                <td class="empty"></td>
+              {% else %}
+                {% set date_str = "{}-{:02d}-{:02d}".format(year, month, day) %}
+                {% set status = streak_data.get(date_str) %}
+                {% set info = daily_data.get(date_str) %}
+                <td onclick="selectDay(this)" 
+                    class="{{ status if status else 'empty' }} {% if date_str == today_str %}today{% endif %}">
+                  {{ day }}
+                  <div class="tooltip">
+                    <strong>Date:</strong> {{ date_str }}<br>
+                    {% if info %}
+                      <strong>Present:</strong> {{ ', '.join(info['present']) if info['present'] else 'None' }}<br>
+                      <strong>Absent:</strong> {{ ', '.join(info['absent']) if info['absent'] else 'None' }}
+                    {% else %}
+                      <em>No data</em>
+                    {% endif %}
+                  </div>
+                </td>
+              {% endif %}
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <a href="{{ url_for('attendance') }}">⬅ Back to Attendance</a>
+  </div>
 </body>
 </html>
