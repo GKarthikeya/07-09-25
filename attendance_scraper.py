@@ -6,6 +6,8 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 try:
     from webdriver_manager.chrome import ChromeDriverManager
@@ -34,6 +36,7 @@ def _parse_date(date_str: str) -> str | None:
 
 
 def create_driver():
+    """Create a Chrome WebDriver with headless options."""
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
@@ -41,11 +44,13 @@ def create_driver():
     chrome_options.add_argument("--disable-gpu")
     chrome_options.add_argument("--window-size=1920,1080")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
-    chrome_options.add_argument("--user-agent=Mozilla/5.0 (X11; Linux x86_64) "
-                                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                                "Chrome/120.0.0.0 Safari/537.36")
+    chrome_options.add_argument(
+        "--user-agent=Mozilla/5.0 (X11; Linux x86_64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    )
 
-    # Prefer system-installed Chrome (Dockerfile provides google-chrome)
+    # Prefer system-installed Chrome
     for path in ("/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"):
         if os.path.exists(path):
             chrome_options.binary_location = path
@@ -71,7 +76,7 @@ def calculate_attendance(rows, page_text=None):
     Parse rows into:
       - subjects: dict of per-course stats
       - overall: total stats
-      - daily: YYYY-MM-DD -> {present, absent}
+      - daily: YYYY-MM-DD -> {present: [subjects], absent: [subjects]}
       - streak: YYYY-MM-DD -> "green"/"red"
     """
     result = {
@@ -102,7 +107,8 @@ def calculate_attendance(rows, page_text=None):
         if not text:
             continue
 
-        m_course = re.match(r"^\s*([A-Z]{2,}\d+)\s*[-:\u2013]\s*(.+)$", text)
+        # Detect course line
+        m_course = re.match(r"^\s*([A-Za-z0-9]+)\s*[-:\u2013]\s*(.+)$", text)
         if m_course:
             current_course_code = m_course.group(1).strip()
             current_course_name = m_course.group(2).strip()
@@ -125,11 +131,11 @@ def calculate_attendance(rows, page_text=None):
 
             if date_key not in result["daily"]:
                 result["daily"][date_key] = {"present": [], "absent": []}
+
             status_up = status_col.upper()
             if "PRESENT" in status_up:
                 if current_course_name:
                     result["daily"][date_key]["present"].append(current_course_name)
-                
                 total_present += 1
                 if current_course_code:
                     ensure_subject(current_course_code, current_course_name or "")
@@ -137,7 +143,6 @@ def calculate_attendance(rows, page_text=None):
             elif "ABSENT" in status_up:
                 if current_course_name:
                     result["daily"][date_key]["absent"].append(current_course_name)
-                    
                 total_absent += 1
                 if current_course_code:
                     ensure_subject(current_course_code, current_course_name or "")
@@ -147,7 +152,7 @@ def calculate_attendance(rows, page_text=None):
     if not result["daily"] and page_text:
         lines = [ln.strip() for ln in page_text.splitlines() if ln.strip()]
         for i, line in enumerate(lines):
-            m_course = re.match(r"^\s*([A-Z]{2,}\d+)\s*[-:\u2013]\s*(.+)$", line)
+            m_course = re.match(r"^\s*([A-Za-z0-9]+)\s*[-:\u2013]\s*(.+)$", line)
             if m_course:
                 current_course_code = m_course.group(1).strip()
                 current_course_name = m_course.group(2).strip()
@@ -155,7 +160,7 @@ def calculate_attendance(rows, page_text=None):
                 j = i + 1
                 while j < len(lines):
                     l = lines[j]
-                    if re.match(r"^\s*([A-Z]{2,}\d+)\s*[-:\u2013]\s*(.+)$", l):
+                    if re.match(r"^\s*([A-Za-z0-9]+)\s*[-:\u2013]\s*(.+)$", l):
                         break
                     m_row = re.search(r"(\d{1,2}\s+[A-Za-z]{3},\s+\d{4}).*(PRESENT|ABSENT)", l, re.IGNORECASE)
                     if m_row:
@@ -163,13 +168,13 @@ def calculate_attendance(rows, page_text=None):
                         status = m_row.group(2).upper()
                         if date_key:
                             if date_key not in result["daily"]:
-                                result["daily"][date_key] = {"present": 0, "absent": 0}
+                                result["daily"][date_key] = {"present": [], "absent": []}
                             if status == "PRESENT":
-                                result["daily"][date_key]["present"] += 1
+                                result["daily"][date_key]["present"].append(current_course_name)
                                 result["subjects"][current_course_code]["present"] += 1
                                 total_present += 1
                             else:
-                                result["daily"][date_key]["absent"] += 1
+                                result["daily"][date_key]["absent"].append(current_course_name)
                                 result["subjects"][current_course_code]["absent"] += 1
                                 total_absent += 1
                     j += 1
@@ -197,12 +202,10 @@ def calculate_attendance(rows, page_text=None):
         result["overall"]["success"] = False
         result["overall"]["message"] = "No attendance rows found."
 
-    # --- Build streak data (green/red per day) ---
+    # --- Build streak data ---
     for date, stats in result["daily"].items():
-        if stats["absent"] > 0:
-            result["streak"][date] = "red"
-        else:
-            result["streak"][date] = "green"
+        absent_count = len(stats["absent"])
+        result["streak"][date] = "red" if absent_count > 0 else "green"
 
     return result
 
@@ -212,20 +215,21 @@ def login_and_get_attendance(username, password):
     driver = create_driver()
     try:
         driver.get(COLLEGE_LOGIN_URL)
-        time.sleep(2)
 
+        WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "txt_uname")))
         driver.find_element(By.ID, "txt_uname").send_keys(username)
         driver.find_element(By.ID, "txt_pwd").send_keys(password)
         driver.find_element(By.ID, "but_submit").click()
-        time.sleep(4)
+
+        WebDriverWait(driver, 10).until(lambda d: "home" in d.current_url.lower() or "login" in d.current_url.lower())
 
         if "login" in driver.current_url.lower() or "Invalid username or password" in driver.page_source:
             return {"overall": {"success": False, "message": "Login failed. Please check credentials."}}
 
         driver.get(ATTENDANCE_URL)
-        time.sleep(3)
-
-        rows = driver.find_elements(By.TAG_NAME, "tr")
+        rows = WebDriverWait(driver, 10).until(
+            EC.presence_of_all_elements_located((By.TAG_NAME, "tr"))
+        )
         page_text = driver.find_element(By.TAG_NAME, "body").text
 
         return calculate_attendance(rows, page_text=page_text)
@@ -237,4 +241,3 @@ def login_and_get_attendance(username, password):
             driver.quit()
         except Exception:
             pass
-
