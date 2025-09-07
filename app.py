@@ -1,4 +1,6 @@
 import os
+import calendar
+from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_session import Session
 from attendance_scraper import login_and_get_attendance
@@ -65,13 +67,25 @@ def streak():
     if not streak_data:
         return redirect(url_for("home"))
 
-    # Open latest available month in calendar
-    initial_date = sorted(streak_data.keys())[-1] if streak_data else None
+    # --- Get all available months (YYYY-MM) ---
+    months = sorted({d[:7] for d in streak_data.keys()})
+
+    # --- Selected month (default = latest) ---
+    selected_month = request.args.get("month", months[-1])
+    year, month = map(int, selected_month.split("-"))
+
+    # --- Build calendar grid ---
+    cal = calendar.Calendar(firstweekday=0)  # Monday start
+    month_days = cal.monthdayscalendar(year, month)  # [[days in week], ...]
 
     return render_template(
         "streak.html",
         streak_data=streak_data,
-        initial_date=initial_date
+        months=months,
+        current_month=selected_month,
+        month_days=month_days,
+        year=year,
+        month=month
     )
 
 
