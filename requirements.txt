@@ -1,0 +1,9 @@
+#flask
+#selenium
+#pandas
+#gunicorn
+Flask==3.0.3
+Flask-Session==0.8.0
+selenium==4.24.0
+webdriver-manager==4.0.2
+gunicorn==22.0.0
