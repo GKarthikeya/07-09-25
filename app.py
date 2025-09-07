@@ -64,23 +64,21 @@ def attendance():
 @app.route("/streak")
 def streak():
     streak_data = session.get("streak_data", {})
+    daily_data = session.get("daily_data", {})
     if not streak_data:
         return redirect(url_for("home"))
 
-    # --- Get all available months (YYYY-MM) ---
     months = sorted({d[:7] for d in streak_data.keys()})
-
-    # --- Selected month (default = latest) ---
     selected_month = request.args.get("month", months[-1])
     year, month = map(int, selected_month.split("-"))
 
-    # --- Build calendar grid ---
-    cal = calendar.Calendar(firstweekday=0)  # Monday start
-    month_days = cal.monthdayscalendar(year, month)  # [[days in week], ...]
+    cal = calendar.Calendar(firstweekday=0)
+    month_days = cal.monthdayscalendar(year, month)
 
     return render_template(
         "streak.html",
         streak_data=streak_data,
+        daily_data=daily_data,   # 👈 Added
         months=months,
         current_month=selected_month,
         month_days=month_days,
@@ -89,6 +87,8 @@ def streak():
     )
 
 
+
 if __name__ == "__main__":
     # Local dev only; on Render we run via gunicorn from Dockerfile
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 10000)), debug=True)
+
