@@ -1,23 +1,94 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Login | Attendance</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <meta charset="UTF-8">
+    <title>Student Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #f8f9fc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        .login-container {
+            background: white;
+            padding: 30px 25px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 400px;
+        }
+        .login-title {
+            text-align: center;
+            font-size: 26px;
+            font-weight: bold;
+            color: #003366;
+            margin-bottom: 25px;
+        }
+        .input-group {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .input-group input {
+            width: 75%;
+            padding: 12px 40px 12px 15px;
+            font-size: 16px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+        .input-group .icon {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #888;
+            cursor: pointer;
+        }
+        .login-button {
+            width: 100%;
+            background-color: #007bff;
+            color: white;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .login-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
 </head>
-<body class="container">
-  <div class="card">
-    <h1>Samvidha Attendance</h1>
-    {% if error %}
-      <div class="alert">{{ error }}</div>
-    {% endif %}
-    <form action="{{ url_for('attendance') }}" method="post" class="form">
-      <label>Username</label>
-      <input type="text" name="username" required />
-      <label>Password</label>
-      <input type="password" name="password" required />
-      <button type="submit">Login</button>
+<body>
+    <form method="POST" action="/attendance" class="login-container">
+        <div class="login-title">Student Login</div>
+        <div class="input-group">
+            <input type="text" name="username" placeholder="User Name" required>
+            <i class="fa fa-user icon"></i>
+        </div>
+        <div class="input-group">
+            <input type="password" name="password" placeholder="Password" id="password" required>
+            <i class="fa fa-eye icon" id="togglePassword" onclick="togglePasswordVisibility()"></i>
+        </div>
+        <button type="submit" class="login-button">Login</button>
     </form>
-  </div>
+    <script>
+        function togglePasswordVisibility() {
+            const passwordField = document.getElementById("password");
+            const toggleIcon = document.getElementById("togglePassword");
+            if (passwordField.type === "password") {
+                passwordField.type = "text";
+                toggleIcon.classList.remove("fa-eye");
+                toggleIcon.classList.add("fa-eye-slash");
+            } else {
+                passwordField.type = "password";
+                toggleIcon.classList.remove("fa-eye-slash");
+                toggleIcon.classList.add("fa-eye");
+            }
+        }
+    </script>
 </body>
 </html>
