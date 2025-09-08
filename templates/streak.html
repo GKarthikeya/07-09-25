@@ -1,66 +1,67 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="UTF-8">
   <title>Attendance Streak</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
   <style>
-    /* small circular marker at bottom-center of each day */
-    .streak-dot {
-      position: absolute;
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      border: 2px solid;
-      bottom: 6px; left: 50%;
-      transform: translateX(-50%);
-      pointer-events: none;
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; margin-top: 15px; }
+    th, td {
+      width: 40px; height: 40px;
+      text-align: center;
+      border: 1px solid #ccc;
     }
-    .streak-dot.present { border-color: #16a34a; } /* green-600 */
-    .streak-dot.absent { border-color: #dc2626; }  /* red-600 */
-    .fc .fc-daygrid-day-frame { position: relative; } /* ensure positioned parent */
+    .green { background-color: #4CAF50; color: white; }
+    .red { background-color: #F44336; color: white; }
+    .empty { background-color: #f9f9f9; }
+    select { padding: 5px; margin-bottom: 10px; }
   </style>
-</head>
-<body class="container">
-  <div class="card">
-    <h1>Attendance Streak</h1>
-    <p class="muted">Green circle = all classes present; Red circle = at least one absent.</p>
-    <div id="calendar"></div>
-  </div>
-
   <script>
-    const dailyData = {{ daily_data | tojson }};
-    const initialDate = "{{ initial_date or '' }}";
-
-    function dayStatus(dateStr) {
-      const d = dailyData[dateStr];
-      if (!d) return null;
-      // Present day => no absences that day
-      return (d.absent === 0 && (d.present > 0)) ? "present" : "absent";
+    function changeMonth() {
+      const selected = document.getElementById("month-select").value;
+      window.location.href = "/streak?month=" + selected;
     }
-
-    document.addEventListener('DOMContentLoaded', function() {
-      const calendarEl = document.getElementById('calendar');
-      const calendar = new FullCalendar.Calendar(calendarEl, {
-        headerToolbar: { start: 'prev,next today', center: 'title', end: '' },
-        initialView: 'dayGridMonth',
-        initialDate: initialDate || undefined,
-        dayCellDidMount: function(info) {
-          const y = info.date.getFullYear();
-          const m = String(info.date.getMonth() + 1).padStart(2, '0');
-          const d = String(info.date.getDate()).padStart(2, '0');
-          const dateStr = `${y}-${m}-${d}`;
-          const status = dayStatus(dateStr);
-          if (status) {
-            const dot = document.createElement('div');
-            dot.className = `streak-dot ${status}`;
-            info.el.appendChild(dot);
-          }
-        }
-      });
-      calendar.render();
-    });
   </script>
+</head>
+<body>
+  <h2>Attendance Streak</h2>
+  <p>Showing days marked as <span style="color:green">Present</span> or <span style="color:red">Absent</span>.</p>
+
+  <!-- Month selector -->
+  <label for="month-select">Select Month:</label>
+  <select id="month-select" onchange="changeMonth()">
+    {% for m in months %}
+      <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>
+        {{ m }}
+      </option>
+    {% endfor %}
+  </select>
+
+  <!-- Calendar -->
+  <table>
+    <thead>
+      <tr>
+        <th>Mon</th><th>Tue</th><th>Wed</th>
+        <th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for week in month_days %}
+        <tr>
+          {% for day in week %}
+            {% if day == 0 %}
+              <td class="empty"></td>
+            {% else %}
+              {% set date_str = "{}-{:02d}-{:02d}".format(year, month, day) %}
+              {% set status = streak_data.get(date_str) %}
+              <td class="{{ status if status else 'empty' }}">{{ day }}</td>
+            {% endif %}
+          {% endfor %}
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <p><a href="{{ url_for('attendance') }}">⬅ Back to Attendance</a></p>
 </body>
 </html>
