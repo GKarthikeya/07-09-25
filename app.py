@@ -1,6 +1,4 @@
 import os
-import calendar
-from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, session
 from flask_session import Session
 from attendance_scraper import login_and_get_attendance
@@ -28,23 +26,22 @@ def attendance():
     if not username or not password:
         return render_template("login.html", error="Please enter username and password.")
 
-    # --- Fetch attendance ---
+    # Get attendance using scraper
     data = login_and_get_attendance(username, password)
 
-    # --- Login failed? ---
+    # If login failed or scraper returned error
     if not data.get("overall", {}).get("success"):
         return render_template(
             "login.html",
             error=data.get("overall", {}).get("message", "Login failed.")
         )
 
-    # --- Store streak & daily data in session ---
+    # Save daily data temporarily in server-side session
     session["daily_data"] = data.get("daily", {})
-    session["streak_data"] = data.get("streak", {})
-    session["months"] = sorted({d[:7] for d in session["streak_data"].keys()})  # YYYY-MM
+    session["months_present"] = sorted({d[:7] for d in session["daily_data"].keys()})  # YYYY-MM
     session.modified = True
 
-    # --- Subject table ---
+    # Prepare subject data for table
     subjects = data.get("subjects", {})
     table_data = []
     for i, (code, sub) in enumerate(subjects.items(), start=1):
@@ -63,32 +60,14 @@ def attendance():
 
 @app.route("/streak")
 def streak():
-    streak_data = session.get("streak_data", {})
     daily_data = session.get("daily_data", {})
-    if not streak_data:
+    if not daily_data:
         return redirect(url_for("home"))
-
-    months = sorted({d[:7] for d in streak_data.keys()})
-    selected_month = request.args.get("month", months[-1])
-    year, month = map(int, selected_month.split("-"))
-
-    cal = calendar.Calendar(firstweekday=0)
-    month_days = cal.monthdayscalendar(year, month)
-
-    return render_template(
-        "streak.html",
-        streak_data=streak_data,
-        daily_data=daily_data,   # 👈 Added
-        months=months,
-        current_month=selected_month,
-        month_days=month_days,
-        year=year,
-        month=month
-    )
-
+    # Pass an initial date (latest available) so calendar opens on a relevant month
+    initial_date = sorted(daily_data.keys())[-1] if daily_data else None
+    return render_template("streak.html", daily_data=daily_data, initial_date=initial_date)
 
 
 if __name__ == "__main__":
     # Local dev only; on Render we run via gunicorn from Dockerfile
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 10000)), debug=True)
-
