@@ -1,7 +1,7 @@
 import os
 import re
 from datetime import datetime
-from flask import Flask, render_template, request
+from itertools import groupby
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -14,17 +14,15 @@ try:
 except Exception:
     ChromeDriverManager = None
 
-# ----------------------------
-# CONFIG
-# ----------------------------
+# URLs
 COLLEGE_LOGIN_URL = "https://samvidha.iare.ac.in/"
 ATTENDANCE_URL = "https://samvidha.iare.ac.in/home?action=course_content"
+
+# Date formats seen in site
 DATE_INPUT_FORMATS = ["%d %b, %Y", "%d %b %Y"]
 
 
-# ----------------------------
-# HELPERS
-# ----------------------------
+# ---------- Helpers ----------
 def _parse_date(date_str: str) -> str | None:
     """Normalize date string → YYYY-MM-DD."""
     date_str = date_str.strip()
@@ -38,6 +36,7 @@ def _parse_date(date_str: str) -> str | None:
 
 
 def create_driver():
+    """Setup ChromeDriver with fallbacks."""
     chrome_options = Options()
     chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
@@ -46,7 +45,7 @@ def create_driver():
     chrome_options.add_argument("--window-size=1920,1080")
     chrome_options.add_argument("--disable-blink-features=AutomationControlled")
 
-    # Prefer system-installed Chrome
+    # Prefer system-installed chrome
     for path in ("/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"):
         if os.path.exists(path):
             chrome_options.binary_location = path
@@ -67,12 +66,27 @@ def create_driver():
     return webdriver.Chrome(service=service, options=chrome_options)
 
 
-def calculate_attendance(rows):
+def calculate_streaks(daily):
+    """Find longest present streak (continuous days)."""
+    dates = sorted(daily.keys())
+    longest = current = 0
+    for d in dates:
+        if daily[d]["absent"] == 0:
+            current += 1
+            longest = max(longest, current)
+        else:
+            current = 0
+    return longest
+
+
+def calculate_attendance(rows, page_text=None):
+    """Parse attendance table rows → dict."""
     result = {
         "subjects": {},
         "overall": {"present": 0, "absent": 0, "percentage": 0.0, "success": False},
         "daily": {},
-        "streak": {}
+        "streak": {},
+        "longest_present_streak": 0,
     }
 
     current_course_code = None
@@ -96,6 +110,7 @@ def calculate_attendance(rows):
         if not text:
             continue
 
+        # Detect subject header rows
         m_course = re.match(r"^\s*([A-Z]{2,}\d+)\s*[-:\u2013]\s*(.+)$", text)
         if m_course:
             current_course_code = m_course.group(1).strip()
@@ -103,6 +118,7 @@ def calculate_attendance(rows):
             ensure_subject(current_course_code, current_course_name)
             continue
 
+        # Attendance entry rows
         tds = row.find_elements(By.TAG_NAME, "td")
         if len(tds) >= 5:
             raw_cols = [td.text.strip() for td in tds]
@@ -144,7 +160,7 @@ def calculate_attendance(rows):
             elif sub["percentage"] < 75:
                 sub["status"] = "Condonation"
 
-    # Overall
+    # Overall stats
     overall_total = total_present + total_absent
     if overall_total > 0:
         result["overall"] = {
@@ -156,38 +172,46 @@ def calculate_attendance(rows):
     else:
         result["overall"]["message"] = "No attendance rows found."
 
-    # Streaks (simple per-day red/green)
+    # Daily streak colors
     for date, stats in result["daily"].items():
         result["streak"][date] = "red" if stats["absent"] > 0 else "green"
+
+    # Longest present streak
+    result["longest_present_streak"] = calculate_streaks(result["daily"])
 
     return result
 
 
 def login_and_get_attendance(username, password):
+    """Login and fetch structured attendance report (optimized with WebDriverWait)."""
     driver = create_driver()
-    wait = WebDriverWait(driver, 10)
+    wait = WebDriverWait(driver, 10)  # max 10s wait
     try:
-        # Open login page
+        # --- Open login page ---
         driver.get(COLLEGE_LOGIN_URL)
+
+        # --- Wait for login form ---
         wait.until(EC.presence_of_element_located((By.ID, "txt_uname")))
 
-        # Enter credentials
+        # --- Enter credentials & submit ---
         driver.find_element(By.ID, "txt_uname").send_keys(username)
         driver.find_element(By.ID, "txt_pwd").send_keys(password)
         driver.find_element(By.ID, "but_submit").click()
 
-        # Wait for login
+        # --- Wait for redirect after login ---
         wait.until(lambda d: "home" in d.current_url.lower() or "Invalid" in d.page_source)
 
         if "login" in driver.current_url.lower() or "Invalid username or password" in driver.page_source:
             return {"overall": {"success": False, "message": "Login failed. Please check credentials."}}
 
-        # Open attendance page
+        # --- Open attendance page ---
         driver.get(ATTENDANCE_URL)
         wait.until(EC.presence_of_element_located((By.TAG_NAME, "tr")))
 
         rows = driver.find_elements(By.TAG_NAME, "tr")
-        return calculate_attendance(rows)
+        page_text = driver.find_element(By.TAG_NAME, "body").text
+
+        return calculate_attendance(rows, page_text=page_text)
 
     except Exception as e:
         return {"overall": {"success": False, "message": f"Error: {str(e)}"}}
@@ -198,20 +222,11 @@ def login_and_get_attendance(username, password):
             pass
 
 
-# ----------------------------
-# FLASK APP
-# ----------------------------
-app = Flask(__name__)
-
-@app.route("/", methods=["GET", "POST"])
-def index():
-    result = None
-    if request.method == "POST":
-        uname = request.form.get("username")
-        pwd = request.form.get("password")
-        result = login_and_get_attendance(uname, pwd)
-    return render_template("index.html", result=result)
-
-
+# ---------- Example Run ----------
 if __name__ == "__main__":
-    app.run(debug=True)
+    USERNAME = "your_id_here"
+    PASSWORD = "your_password_here"
+
+    data = login_and_get_attendance(USERNAME, PASSWORD)
+    from pprint import pprint
+    pprint(data)
