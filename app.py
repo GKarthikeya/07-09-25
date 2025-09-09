@@ -6,14 +6,20 @@ from attendance_scraper import login_and_get_attendance
 
 app = Flask(__name__)
 
-# Session config
+# ---------------------------
+# Session configuration
+# ---------------------------
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-change-me")
 app.config["SESSION_TYPE"] = "filesystem"
 app.config["SESSION_FILE_DIR"] = "/tmp/flask_session"
+os.makedirs(app.config["SESSION_FILE_DIR"], exist_ok=True)
 app.config["SESSION_PERMANENT"] = False
 Session(app)
 
 
+# ---------------------------
+# Routes
+# ---------------------------
 @app.route("/")
 def home():
     return render_template("login.html")
@@ -27,6 +33,7 @@ def attendance():
     if not username or not password:
         return render_template("login.html", error="Please enter username and password.")
 
+    # Call your scraper
     data = login_and_get_attendance(username, password)
 
     if not data.get("overall", {}).get("success"):
@@ -38,7 +45,7 @@ def attendance():
     session["months"] = sorted({d[:7] for d in session["streak_data"].keys()})
     session.modified = True
 
-    # Subject table
+    # Prepare subject table
     subjects = data.get("subjects", {})
     table_data = [
         {
@@ -80,5 +87,8 @@ def streak():
     )
 
 
+# ---------------------------
+# Run app (local only)
+# ---------------------------
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 10000)), debug=True)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
