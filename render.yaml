@@ -7,3 +7,7 @@ services:
     envVars:
       - key: FLASK_SECRET_KEY
         generateValue: true
+      - key: COLLEGE_USERNAME
+        sync: false   # set in Render Dashboard
+      - key: COLLEGE_PASSWORD
+        sync: false   # set in Render Dashboard
