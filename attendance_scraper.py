@@ -1,6 +1,7 @@
 import os
 import re
 from datetime import datetime
+from flask import Flask, render_template, request
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
@@ -13,12 +14,17 @@ try:
 except Exception:
     ChromeDriverManager = None
 
+# ----------------------------
+# CONFIG
+# ----------------------------
 COLLEGE_LOGIN_URL = "https://samvidha.iare.ac.in/"
 ATTENDANCE_URL = "https://samvidha.iare.ac.in/home?action=course_content"
+DATE_INPUT_FORMATS = ["%d %b, %Y", "%d %b %Y"]
 
-DATE_INPUT_FORMATS = ["%d %b, %Y", "%d %b %Y"]  # 03 Sep, 2025 | 03 Sep 2025
 
-
+# ----------------------------
+# HELPERS
+# ----------------------------
 def _parse_date(date_str: str) -> str | None:
     """Normalize date string → YYYY-MM-DD."""
     date_str = date_str.strip()
@@ -61,7 +67,7 @@ def create_driver():
     return webdriver.Chrome(service=service, options=chrome_options)
 
 
-def calculate_attendance(rows, page_text=None):
+def calculate_attendance(rows):
     result = {
         "subjects": {},
         "overall": {"present": 0, "absent": 0, "percentage": 0.0, "success": False},
@@ -150,7 +156,7 @@ def calculate_attendance(rows, page_text=None):
     else:
         result["overall"]["message"] = "No attendance rows found."
 
-    # Streaks
+    # Streaks (simple per-day red/green)
     for date, stats in result["daily"].items():
         result["streak"][date] = "red" if stats["absent"] > 0 else "green"
 
@@ -158,35 +164,30 @@ def calculate_attendance(rows, page_text=None):
 
 
 def login_and_get_attendance(username, password):
-    """Login and fetch structured attendance report (optimized with WebDriverWait)."""
     driver = create_driver()
-    wait = WebDriverWait(driver, 10)  # max 10s wait
+    wait = WebDriverWait(driver, 10)
     try:
-        # --- Open login page ---
+        # Open login page
         driver.get(COLLEGE_LOGIN_URL)
-
-        # --- Wait for login form ---
         wait.until(EC.presence_of_element_located((By.ID, "txt_uname")))
 
-        # --- Enter credentials & submit ---
+        # Enter credentials
         driver.find_element(By.ID, "txt_uname").send_keys(username)
         driver.find_element(By.ID, "txt_pwd").send_keys(password)
         driver.find_element(By.ID, "but_submit").click()
 
-        # --- Wait for redirect after login ---
+        # Wait for login
         wait.until(lambda d: "home" in d.current_url.lower() or "Invalid" in d.page_source)
 
         if "login" in driver.current_url.lower() or "Invalid username or password" in driver.page_source:
             return {"overall": {"success": False, "message": "Login failed. Please check credentials."}}
 
-        # --- Open attendance page ---
+        # Open attendance page
         driver.get(ATTENDANCE_URL)
         wait.until(EC.presence_of_element_located((By.TAG_NAME, "tr")))
 
         rows = driver.find_elements(By.TAG_NAME, "tr")
-        page_text = driver.find_element(By.TAG_NAME, "body").text
-
-        return calculate_attendance(rows, page_text=page_text)
+        return calculate_attendance(rows)
 
     except Exception as e:
         return {"overall": {"success": False, "message": f"Error: {str(e)}"}}
@@ -195,3 +196,22 @@ def login_and_get_attendance(username, password):
             driver.quit()
         except Exception:
             pass
+
+
+# ----------------------------
+# FLASK APP
+# ----------------------------
+app = Flask(__name__)
+
+@app.route("/", methods=["GET", "POST"])
+def index():
+    result = None
+    if request.method == "POST":
+        uname = request.form.get("username")
+        pwd = request.form.get("password")
+        result = login_and_get_attendance(uname, pwd)
+    return render_template("index.html", result=result)
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
